@@ -11,7 +11,7 @@ async def video_card_settings(setting_1, setting_2):
 
     await asyncio.sleep(10)
     
-    print(f'initializing  {setting_1}................')
+    print(f'initializing  {setting_2}................')
     # os.system(setting_2)
 
     return True
@@ -41,19 +41,26 @@ async def start_mining(mining_file):
             #         process.kill()
             #         run_command(video_settings_initial,mining_file,video_settings_final)
 
-        if counter > 1:
+        if counter > 10:
+
+
             print('iter limit reached')
             process.terminate()
-
-            break
+            print('stopping loop')
+            return 'complete'
+        
         counter += 1
 
     rc = process.poll()
     print(rc)
     return rc
 
+
+def stop_loop(future):
+    print(future.result())
+    loop.stop()
     
-async def main():
+def main():
     
     # бат файл с первыми с настройками видеокарты
     setting_1 = 'file_1'
@@ -65,18 +72,23 @@ async def main():
     mining_file = 'mining_file'
 
     mining_file = 'ping ya.ru -t' #temp command
+    global loop 
+    loop = asyncio.get_event_loop()
+
 
     set_settings = loop.create_task(video_card_settings(setting_1, setting_2))
     _start_mining = loop.create_task(start_mining(mining_file))
 
-    await asyncio.wait([
-        set_settings,
-        _start_mining
-    ])
+    _start_mining.add_done_callback(stop_loop)
+    
+    loop.run_forever()
 
     return True
 
     
-    
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(main())
+main()
+
+
