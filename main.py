@@ -1,34 +1,32 @@
-import time
-import os
+import os, time, asyncio
 
-import threading
 import subprocess
-import asyncio
 
 
-async def set_video_setting(video_settings_initial, video_settings_final):
-
-    print('setting default video settings')
-    os.system(video_settings_initial)
-
-    await asyncio.sleep(180)
-
-    print('setting new settings')
-    os.system(video_settings_final)
-
-
-async def start_mining(mining_file,video_settings_initial,video_settings_final):
-    initial_settings = loop.create_task(set_video_setting(
-        video_settings_initial, video_settings_final)
-    )
-
-    await asyncio.sleep(5)
+#Функция устонавливает настройки карты через бат файлы с интервалом в 3 минуты
+async def video_card_settings(setting_1, setting_2):
     
-    print('start mining')
+    print(f'initializing  {setting_1}................')
+    # os.system(setting_1)
+
+    await asyncio.sleep(10)
+    
+    print(f'initializing  {setting_1}................')
+    # os.system(setting_2)
+
+    return True
+
+
+#Функция инициализирует файл для запуска фермы, и следит за логами
+async def start_mining(mining_file):
+    
+    print(mining_file)
     process = subprocess.Popen(mining_file, stdout=subprocess.PIPE) 
-        
+    
+    counter = 0
+
     while True:
-        time.sleep(1)
+        await asyncio.sleep(1)
         output = process.stdout.readline().decode('cp866')
 
         if output == '' and process.poll() is not None:
@@ -36,32 +34,49 @@ async def start_mining(mining_file,video_settings_initial,video_settings_final):
         if output:
 
             print(output)
-            if 'Hashrate' in output:
-                line = output.split(' ')
-                hash_rate = line[3]
-                if float(hash_rate) < 200:
-                    process.kill()
-                    run_command(video_settings_initial,mining_file,video_settings_final)
+            # if 'Hashrate' in output:
+            #     line = output.split(' ')
+            #     hash_rate = line[3]
+            #     if float(hash_rate) < 200:
+            #         process.kill()
+            #         run_command(video_settings_initial,mining_file,video_settings_final)
 
+        if counter > 1:
+            print('iter limit reached')
+            process.terminate()
+
+            break
+        counter += 1
 
     rc = process.poll()
+    print(rc)
     return rc
 
+    
+async def main():
+    
+    # бат файл с первыми с настройками видеокарты
+    setting_1 = 'file_1'
 
-video_settings_initial = '3070-1.bat'
-mining_file = '!ETH-ethermine.bat'
-video_settings_final = '3070.bat'
+    # бат файл с новыми с настройками видеокарты
+    setting_2 = 'file_2'
 
+    # бат файл с инициализацией крипто фермы
+    mining_file = 'mining_file'
 
-if __name__ == '__main__':
+    mining_file = 'ping ya.ru -t' #temp command
 
-    try:
-        loop = asyncio.get_event_loop()
-        loop.set_debug(1)
-        loop.run_until_complete(start_mining(mining_file,video_settings_initial,))
-    except Exception as e:
-        print(e)
+    set_settings = loop.create_task(video_card_settings(setting_1, setting_2))
+    _start_mining = loop.create_task(start_mining(mining_file))
 
-    finally:
-        loop.close()
+    await asyncio.wait([
+        set_settings,
+        _start_mining
+    ])
 
+    return True
+
+    
+    
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
