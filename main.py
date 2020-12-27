@@ -13,21 +13,25 @@ class CryptoFarmController:
 
         def __init__(self):
 
-            self._initial_settings = '3070-1.bat
+            self._initial_settings = '3070-1.bat'
             self._secondary_settings = '3070.bat'
+
+        @property
+        def get_video_card_settings_files(self):
+            return [self._initial_settings,self._secondary_settings]
 
         #Функция устонавливает настройки карты через бат файлы с интервалом в 3 минуты
         async def video_card_settings(self):
             
             print(f'initializing  {self._initial_settings}................')
-            # os.system(self._initial_settings)
+            os.system(self._initial_settings)
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(180)
             
             print(f'initializing  {self._secondary_settings}................')
-            # os.system(self._secondary_settings)
-
-            return True
+            os.system(self._secondary_settings)
+            
+            print('All settings have been applied')
 
 
     class Miner:
@@ -36,12 +40,18 @@ class CryptoFarmController:
 
             self._mining_file = '!ETH-ethermine.bat'
 
+        @property
+        def get_miner_file(self):
+            return self._mining_file
+
         #Функция инициализирует файл для запуска фермы, и следит за логами
-        @staticmethod
-        async def start_mining(mining_file):
+        async def start_mining(self, mining_file):
             
             print(mining_file)
-            process = subprocess.Popen(mining_file, stdout=subprocess.PIPE) 
+            try:
+                process = subprocess.Popen(mining_file, stdout=subprocess.PIPE)
+            except:
+                raise Exception('Force-stop') 
             
             counter = 0
 
@@ -76,6 +86,25 @@ class Controller(CryptoFarmController):
         CryptoFarmController.__init__(self)
         self.loop = None
 
+    @property
+    def files_inplace(self):
+        
+        local_files = os.listdir()
+        miner_file = self.miner.get_miner_file
+
+        if miner_file not in local_files:
+            raise Exception('Mining file is not in current directory')
+
+        setting_files = self.video_settings.get_video_card_settings_files
+
+        for f_ in setting_files:
+            if f_ not in local_files:
+                raise Exception(f'setting file - {f_} is not in current directory')
+
+        return True
+
+
+
 
     def stop_loop(self, future):
 
@@ -85,7 +114,12 @@ class Controller(CryptoFarmController):
 
   
     def main(self, test = True):
+
         print('initializing')
+
+        if not self.files_inplace:
+            return 'Force-stop'
+
         # бат файл с инициализацией крипто фермы
         if test:
             mining_file = 'ping ya.ru -t' #temp command
@@ -94,11 +128,15 @@ class Controller(CryptoFarmController):
 
         self.loop = asyncio.get_event_loop()
 
-        set_settings = self.loop.create_task(self.video_settings.video_card_settings())
+        set_settings = self.loop.create_task(
+            self.video_settings.video_card_settings()
+        )
+        set_settings.add_done_callback(self.stop_loop)
+
         _start_mining = self.loop.create_task(self.miner.start_mining(mining_file))
 
         _start_mining.add_done_callback(self.stop_loop)
-        
+
         self.loop.run_forever()
 
 
@@ -112,7 +150,14 @@ if __name__ == '__main__':
 
         if controller.loop is None:
 
-            controller.main()
+            result = controller.main(test=False)
+
+            if result == 'Force-stop':
+                print('Error')
+                break
+
+            print('sleeping for 5 secs')
+            time.sleep(5)
 
         else:
             time.sleep(5)
